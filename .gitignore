@@ -1,0 +1,9 @@
+node_modules/
+config.env
+sessions/
+store/
+tmp/
+*.db
+*.sqlite
+*.sqlite3
+npm-debug.log*
