@@ -4,10 +4,13 @@ const { fork } = require('child_process');
 const express = require('express');
 
 const ROOT = __dirname;
-const SESSIONS_DIR = path.join(ROOT, 'sessions');
+const SESSIONS_DIR = path.resolve(process.env.SESSIONS_DIR || path.join(ROOT, 'sessions'));
 const PORT = Number(process.env.PORT || 9090);
 const workers = new Map();
 const ipRequests = new Map();
+const restartAttempts = new Map();
+const restartTimers = new Map();
+let shuttingDown = false;
 
 const sharedConfigPath = path.join(ROOT, 'config.env');
 if (fs.existsSync(sharedConfigPath)) {
@@ -23,10 +26,29 @@ function hasRegisteredCredentials(authDir) {
   }
 }
 
+function scheduleSessionRestart(sessionKey, authDir) {
+  if (shuttingDown || restartTimers.has(sessionKey)) return;
+  const attempt = restartAttempts.get(sessionKey) || 0;
+  const delayMs = Math.min(60_000, 1_000 * (2 ** Math.min(attempt, 6)));
+  restartAttempts.set(sessionKey, attempt + 1);
+  console.warn(`Session worker ${sessionKey} exited unexpectedly; restarting in ${Math.ceil(delayMs / 1000)}s.`);
+
+  const timer = setTimeout(() => {
+    restartTimers.delete(sessionKey);
+    if (shuttingDown || workers.has(sessionKey) || !hasRegisteredCredentials(authDir)) return;
+    spawnSession(sessionKey, '', authDir);
+  }, delayMs);
+  timer.unref?.();
+  restartTimers.set(sessionKey, timer);
+}
+
 function spawnSession(sessionKey, pairNumber = '', authDirOverride = '') {
   const sessionRoot = path.join(SESSIONS_DIR, sessionKey);
   const authDir = authDirOverride || path.join(sessionRoot, 'auth');
   fs.mkdirSync(authDir, { recursive: true });
+  const pendingRestart = restartTimers.get(sessionKey);
+  if (pendingRestart) clearTimeout(pendingRestart);
+  restartTimers.delete(sessionKey);
 
   const child = fork(path.join(ROOT, 'index.js'), [], {
     cwd: ROOT,
@@ -34,6 +56,7 @@ function spawnSession(sessionKey, pairNumber = '', authDirOverride = '') {
       ...process.env,
       BOT_SESSION_WORKER: '1',
       BOT_SESSION_KEY: sessionKey,
+      BOT_SESSION_ROOT: sessionRoot,
       BOT_PAIR_NUMBER: pairNumber,
       BOT_AUTH_DIR: authDir,
       ...(pairNumber ? { OWNER_NUMBER: pairNumber } : {})
@@ -43,9 +66,11 @@ function spawnSession(sessionKey, pairNumber = '', authDirOverride = '') {
 
   const record = {
     child,
+    authDir,
     code: null,
     codeAt: 0,
     connected: false,
+    loggedOut: false,
     promise: null,
     resolve: null,
     reject: null
@@ -76,12 +101,15 @@ function spawnSession(sessionKey, pairNumber = '', authDirOverride = '') {
     } else if (message.type === 'connected') {
       record.connected = true;
       record.code = null;
+      restartAttempts.delete(sessionKey);
       if (record.resolve) {
         clearTimeout(record.timeout);
         record.resolve(null);
         record.resolve = null;
         record.reject = null;
       }
+    } else if (message.type === 'disconnected') {
+      record.connected = false;
     } else if (message.type === 'pairing_error') {
       if (record.reject) {
         clearTimeout(record.timeout);
@@ -91,6 +119,7 @@ function spawnSession(sessionKey, pairNumber = '', authDirOverride = '') {
       }
     } else if (message.type === 'logged_out') {
       record.connected = false;
+      record.loggedOut = true;
     }
   });
 
@@ -103,13 +132,20 @@ function spawnSession(sessionKey, pairNumber = '', authDirOverride = '') {
     }
   });
 
-  child.on('exit', () => {
+  child.on('exit', (code, signal) => {
     clearTimeout(record.timeout);
-    if (workers.get(sessionKey) === record) workers.delete(sessionKey);
+    const wasCurrentWorker = workers.get(sessionKey) === record;
+    if (wasCurrentWorker) workers.delete(sessionKey);
     if (record.reject) {
       record.reject(new Error('The session worker stopped before pairing finished.'));
       record.resolve = null;
       record.reject = null;
+    }
+    if (wasCurrentWorker && !record.loggedOut && hasRegisteredCredentials(record.authDir)) {
+      console.warn(`Session worker ${sessionKey} exited (${code ?? signal ?? 'unknown'}).`);
+      scheduleSessionRestart(sessionKey, record.authDir);
+    } else if (!hasRegisteredCredentials(record.authDir)) {
+      restartAttempts.delete(sessionKey);
     }
   });
 
@@ -204,7 +240,10 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 });
 
 function shutdown(signal) {
+  shuttingDown = true;
   console.log(`${signal} received; stopping session workers.`);
+  for (const timer of restartTimers.values()) clearTimeout(timer);
+  restartTimers.clear();
   for (const worker of workers.values()) worker.child.kill('SIGTERM');
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 5000).unref?.();

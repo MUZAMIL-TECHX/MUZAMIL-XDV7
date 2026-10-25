@@ -4,7 +4,7 @@ const APP_ROOT = __dirname
 const IS_SESSION_WORKER = process.env.BOT_SESSION_WORKER === '1'
 const SESSION_KEY = String(process.env.BOT_SESSION_KEY || 'default').replace(/[^a-zA-Z0-9_-]/g, '') || 'default'
 const SESSION_ROOT = IS_SESSION_WORKER
-  ? path.join(APP_ROOT, 'sessions', SESSION_KEY)
+  ? path.resolve(process.env.BOT_SESSION_ROOT || path.join(APP_ROOT, 'sessions', SESSION_KEY))
   : path.join(APP_ROOT, 'sessions')
 
 // Load shared deployment defaults before moving each worker into its own
@@ -124,7 +124,9 @@ const {
 //=============================================
 
   //===================SESSION-AUTH============================
-const sessionDir = process.env.BOT_AUTH_DIR || path.join(__dirname, 'sessions');
+const sessionDir = process.env.BOT_AUTH_DIR || (IS_SESSION_WORKER
+    ? path.join(SESSION_ROOT, 'auth')
+    : path.join(APP_ROOT, 'sessions'));
 
 // Create session directory if it doesn't exist
 if (!fs.existsSync(sessionDir)) {
@@ -132,6 +134,33 @@ if (!fs.existsSync(sessionDir)) {
 }
 
 //=======SESSION-AUTH==============
+
+let reconnectTimer = null;
+let reconnectAttempt = 0;
+
+function hasRegisteredSession() {
+    try {
+        return JSON.parse(fs.readFileSync(path.join(sessionDir, 'creds.json'), 'utf8')).registered === true;
+    } catch {
+        return false;
+    }
+}
+
+function scheduleReconnect(reason = '') {
+    if (reconnectTimer) return;
+    const delayMs = Math.min(60_000, 5_000 * (2 ** Math.min(reconnectAttempt, 4)));
+    reconnectAttempt += 1;
+    console.warn(`[🔰] Reconnecting session ${SESSION_KEY} in ${Math.round(delayMs / 1000)}s${reason ? ` (${reason})` : ''}`);
+
+    reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connectToWA().catch(error => {
+            console.error(`[🔰] Reconnect attempt failed for ${SESSION_KEY}:`, error.message);
+            scheduleReconnect(error.message);
+        });
+    }, delayMs);
+    reconnectTimer.unref?.();
+}
 
 async function connectToWA() {
     console.log("[🔰] IMMU-MD Connecting to WhatsApp ⏳️...");
@@ -144,10 +173,13 @@ async function connectToWA() {
         logger: P({ level: 'silent' }),
         printQRInTerminal: !pairingPhone && !state.creds.registered,
         browser: Browsers.macOS("Firefox"),
-        syncFullHistory: true,
+        syncFullHistory: false,
         auth: state,
         version,
-        getMessage: async () => ({})
+        getMessage: async () => ({}),
+        connectTimeoutMs: 60000,
+        defaultQueryTimeoutMs: 60000,
+        keepAliveIntervalMs: 25000
     });
 
     // ... rest of your connection code
@@ -157,15 +189,30 @@ async function connectToWA() {
         const { connection, lastDisconnect, qr } = update;
         
         if (connection === 'close') {
-            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-                console.log('[🔰] Connection lost, reconnecting...');
-                setTimeout(() => connectToWA().catch(error => console.error('Reconnect failed:', error.message)), 5000);
-            } else {
-                console.log('[🔰] This WhatsApp session was logged out. Pair it again to reconnect.');
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const loggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401;
+            console.warn(`[🔰] Session ${SESSION_KEY} disconnected (status ${statusCode || 'unknown'}): ${lastDisconnect?.error?.message || 'connection closed'}`);
+            if (process.send) process.send({ type: 'disconnected', session: SESSION_KEY });
+
+            if (loggedOut) {
+                console.log('[🔰] WhatsApp logged this session out. Clearing invalid auth; pair it again to reconnect.');
+                if (reconnectTimer) clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+                try {
+                    fs.rmSync(sessionDir, { recursive: true, force: true });
+                    fs.mkdirSync(sessionDir, { recursive: true });
+                } catch (error) {
+                    console.error('[🔰] Could not clear the logged-out session:', error.message);
+                }
                 if (process.send) process.send({ type: 'logged_out', session: SESSION_KEY });
                 if (IS_SESSION_WORKER) setTimeout(() => process.exit(0), 300);
+            } else {
+                scheduleReconnect(lastDisconnect?.error?.message || 'connection closed');
             }
         } else if (connection === 'open') {
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+            reconnectAttempt = 0;
             console.log('[🔰] IMMU MD connected to WhatsApp ✅');
             if (process.send) {
                 process.send({
@@ -961,7 +1008,12 @@ if (isBanned) return; // Ignore banned users completely
   setTimeout(() => {
   connectToWA().catch(error => {
       console.error('WhatsApp worker failed to start:', error.message)
-      if (process.send) process.send({ type: 'pairing_error', message: error.message })
-      if (IS_SESSION_WORKER) process.exit(1)
+      const registered = hasRegisteredSession();
+      if (IS_SESSION_WORKER && process.env.BOT_PAIR_NUMBER && !registered) {
+          if (process.send) process.send({ type: 'pairing_error', message: error.message })
+          process.exit(1)
+          return
+      }
+      scheduleReconnect(error.message)
   })
   }, 4000);
