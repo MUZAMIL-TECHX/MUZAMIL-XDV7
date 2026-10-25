@@ -1,5 +1,5 @@
 const { cmd } = require("../command");
-const Jimp = require("jimp");
+const { Jimp, JimpMime } = require("jimp");
 
 cmd({
   pattern: "fullpp",
@@ -34,10 +34,10 @@ cmd({
     const image = await Jimp.read(imageBuffer);
 
     // Image processing pipeline
-    const blurredBg = image.clone().cover(640, 640).blur(10);
-    const centeredImage = image.clone().contain(640, 640);
+    const blurredBg = image.clone().cover({ w: 640, h: 640 }).blur(10);
+    const centeredImage = image.clone().contain({ w: 640, h: 640 });
     blurredBg.composite(centeredImage, 0, 0);
-    const finalImage = await blurredBg.getBufferAsync(Jimp.MIME_JPEG);
+    const finalImage = await blurredBg.getBuffer(JimpMime.jpeg);
 
     // Update profile picture
     await client.updateProfilePicture(botJid, finalImage);
