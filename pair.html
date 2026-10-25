@@ -3,50 +3,53 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07140f">
-  <title>Muzamil Bot — Pair &amp; Run</title>
+  <meta name="theme-color" content="#090914">
+  <title>MUZAMIL-XDV7 — Pair device</title>
   <style>
-    :root { color-scheme: dark; --bg:#07140f; --panel:#10221a; --line:#254738; --green:#55e39b; --muted:#a3b9ae; }
+    :root { color-scheme:dark; --bg:#090914; --panel:#11111d; --line:#29243d; --violet:#b78cff; --pink:#ff6f9f; --muted:#aaa8bd; }
     * { box-sizing:border-box; }
-    body { min-height:100vh; margin:0; display:grid; place-items:center; padding:24px; font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif; color:#f4fbf7; background:radial-gradient(ellipse at 50% 0%,#16402c 0%,var(--bg) 58%); }
-    main { width:min(100%,470px); padding:34px; border:1px solid var(--line); border-radius:24px; background:linear-gradient(160deg,#12271e,var(--panel)); box-shadow:0 24px 80px #0008; }
-    .brand { display:flex; align-items:center; gap:12px; margin-bottom:30px; }
-    .mark { width:44px;height:44px;display:grid;place-items:center;border-radius:14px;background:#183b2b;color:var(--green);font-size:24px; }
-    .brand strong { display:block;font-size:14px;letter-spacing:.13em; }
-    .brand span { display:block;margin-top:4px;color:var(--muted);font-size:12px; }
-    .pill { display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #2b5a44;border-radius:30px;color:#a9f3cb;font-size:11px;font-weight:700;letter-spacing:.08em; }
-    .dot { width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green); }
-    h1 { margin:20px 0 8px;font-size:clamp(28px,7vw,38px);letter-spacing:-.04em; }
-    .intro { margin:0 0 26px;color:var(--muted);line-height:1.6;font-size:14px; }
-    label { display:block;margin-bottom:9px;font-size:12px;font-weight:700;color:#d6e7dd; }
-    input { width:100%;height:54px;padding:0 15px;border:1px solid #315845;border-radius:12px;background:#091810;color:#fff;font:inherit;outline:none; }
-    input:focus { border-color:var(--green);box-shadow:0 0 0 3px #55e39b20; }
-    button { width:100%;height:52px;margin-top:13px;border:0;border-radius:12px;background:var(--green);color:#062014;font:inherit;font-weight:800;cursor:pointer;transition:filter .15s,transform .15s; }
-    button:hover { filter:brightness(1.06);transform:translateY(-1px); }
-    button:disabled { opacity:.55;cursor:wait;transform:none; }
-    #result { display:none;margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:12px;background:#091810;text-align:center; }
+    body { min-height:100vh; margin:0; display:grid; place-items:center; padding:24px; font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif; color:#f8f6ff; background:radial-gradient(ellipse at 15% 10%,#30204a 0,transparent 42%),radial-gradient(ellipse at 90% 90%,#301b35 0,transparent 38%),var(--bg); }
+    main { width:min(100%,460px); padding:34px; border:1px solid #ffffff13; border-radius:26px; background:linear-gradient(155deg,#171522f2,var(--panel)); box-shadow:0 28px 90px #0009,inset 0 1px #ffffff0c; }
+    .brand { display:flex; align-items:center; gap:13px; margin-bottom:28px; }
+    .mark { width:46px;height:46px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,#35264f,#24192f);color:var(--violet);font-size:24px; }
+    .brand strong { display:block;font-size:13px;letter-spacing:.15em; }
+    .brand span { display:block;margin-top:5px;color:var(--muted);font-size:12px; }
+    .pill { display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid #6d4d814a;border-radius:30px;color:#e1c9ff;font-size:10px;font-weight:750;letter-spacing:.1em; }
+    .dot { width:7px;height:7px;border-radius:50%;background:#d28cff;box-shadow:0 0 12px #d28cff; }
+    h1 { margin:21px 0 8px;font-size:clamp(27px,7vw,36px);letter-spacing:-.045em; }
+    .intro { margin:0 0 25px;color:var(--muted);line-height:1.65;font-size:14px; }
+    label { display:block;margin-bottom:9px;font-size:12px;font-weight:700;color:#e2ddeb; }
+    .input-frame { padding:2px;border-radius:14px;background:linear-gradient(110deg,#ff6f9f,#b78cff,#6f9cff,#ff6f9f);background-size:250% 100%;animation:glow 7s linear infinite; }
+    input { width:100%;height:52px;padding:0 15px;border:0;border-radius:12px;background:#100f19;color:#fff;font:inherit;outline:none; }
+    input::placeholder { color:#777387; }
+    input:focus { box-shadow:inset 0 0 0 1px #d8b6ff; }
+    button { width:100%;height:52px;margin-top:14px;border:1px solid #ffffff20;border-radius:13px;background:linear-gradient(110deg,#492d68,#653d79);color:#fff;font:inherit;font-weight:800;letter-spacing:.02em;cursor:pointer;transition:filter .15s,transform .15s; }
+    button:hover { filter:brightness(1.15);transform:translateY(-1px); }
+    button:disabled { opacity:.58;cursor:wait;transform:none; }
+    #result { display:none;margin-top:18px;padding:17px;border:1px solid var(--line);border-radius:14px;background:#0d0c15;text-align:center; }
     #message { color:var(--muted);font-size:13px;line-height:1.5; }
-    #code { margin-top:9px;color:var(--green);font-size:26px;font-weight:850;letter-spacing:.16em; }
-    .note { margin:18px 0 0;color:#8ca497;font-size:11px;line-height:1.6; }
-    @media(max-width:480px){ main{padding:26px 21px;border-radius:19px;} }
+    #code { margin-top:9px;color:#d3aaff;font-size:27px;font-weight:850;letter-spacing:.2em; }
+    .note { margin:18px 0 0;color:#8f8ba0;font-size:11px;line-height:1.65; }
+    @keyframes glow { to { background-position:250% 50%; } }
+    @media(max-width:480px){ main{padding:26px 21px;border-radius:21px;} }
   </style>
 </head>
 <body>
   <main>
-    <div class="brand"><div class="mark">✦</div><div><strong>MUZAMIL-XD</strong><span>WhatsApp bot pairing</span></div></div>
-    <div class="pill"><i class="dot"></i> MULTI-SESSION READY</div>
-    <h1>Pair &amp; run</h1>
-    <p class="intro">Enter your WhatsApp number with country code. Each number gets its own bot session and settings.</p>
+    <div class="brand"><div class="mark">✦</div><div><strong>MUZAMIL-XDV7</strong><span>WhatsApp bot pairing</span></div></div>
+    <div class="pill"><i class="dot"></i> MULTI-SESSION · READY</div>
+    <h1>Pair your WhatsApp</h1>
+    <p class="intro">Enter your number with its country code to get a linked-device code. Each number keeps its own bot session.</p>
     <form id="pairForm">
-      <label for="number">WhatsApp number</label>
-      <input id="number" name="number" type="tel" inputmode="numeric" autocomplete="tel" placeholder="923001234567" required>
-      <button id="submit" type="submit">Generate pairing code</button>
+      <label for="number">Phone number with country code</label>
+      <div class="input-frame"><input id="number" name="number" type="tel" inputmode="numeric" autocomplete="tel" placeholder="923001234567" required></div>
+      <button id="submit" type="submit">GET PAIRING CODE</button>
     </form>
     <section id="result" aria-live="polite">
       <div id="message"></div>
       <div id="code"></div>
     </section>
-    <p class="note">Only pair a number you own or have permission to connect. On your phone, open WhatsApp → Linked Devices → Link a Device, then enter the code.</p>
+    <p class="note">Use only a WhatsApp account you own or have permission to connect. On your phone, open WhatsApp → Linked Devices → Link a Device, then enter the code.</p>
   </main>
   <script>
     const form = document.getElementById('pairForm');
@@ -59,7 +62,7 @@
       const number = document.getElementById('number').value.replace(/\D/g, '');
       result.style.display = 'block';
       code.textContent = '';
-      message.textContent = 'Requesting a code…';
+      message.textContent = 'CONNECTING…';
       button.disabled = true;
       try {
         const response = await fetch(`/code?number=${encodeURIComponent(number)}`);
